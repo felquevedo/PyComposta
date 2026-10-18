@@ -7,6 +7,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from tkinter import ttk, messagebox, filedialog
 
+try:
+    from PIL import Image, ImageTk
+except ImportError:
+    Image = ImageTk = None  # Fallback nativo do Tkinter.
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
@@ -30,6 +35,16 @@ class FormularioFigura(tk.Toplevel):
         Figura criada, ou None se cancelado.
     """
 
+    # Arquivos PNG mantidos na pasta "figuras", ao lado deste script.
+    IMAGENS_FIGURAS = {
+        "Retangulo": "retangulo.png",
+        "Circulo": "circulo.png",
+        "Semicirculo": "semicirculo.png",
+        "QuartoCirculo": "quartocirculo.png",
+        "Triangulo": "triangulo.png",
+        "Poligono": "poligono.png",
+    }
+
     TIPOS = (
         "Retangulo",
         "Circulo",
@@ -39,17 +54,20 @@ class FormularioFigura(tk.Toplevel):
         "Poligono"
     )
 
-    def __init__(self, master, figura=None):
+    def __init__(self, master, figura=None, ao_adicionar=None):
         super().__init__(master)
 
         self.title(
             "Editar figura" if figura else "Adicionar figura"
         )
-        self.geometry("460x570")
+        self.geometry("760x540")
+        # Deixa a maior parte da área de desenho visível atrás do formulário.
+        self.after_idle(self._posicionar_ao_lado)
         self.resizable(False, False)
 
         self.resultado = None
         self.figura_original = figura
+        self.ao_adicionar = ao_adicionar
 
         self.transient(master)
         self.grab_set()
@@ -58,6 +76,12 @@ class FormularioFigura(tk.Toplevel):
         self.sinal = tk.StringVar(value="+1")
 
         self.campos = {}
+        self.imagem_esquema = None  # Mantém referência ao bitmap exibido.
+        # Cache no aplicativo principal: trocar o tipo ou reabrir o formulário
+        # não exige decodificar e redimensionar o mesmo PNG novamente.
+        if not hasattr(master, "_cache_esquemas_figuras"):
+            master._cache_esquemas_figuras = {}
+        self._cache_esquemas = master._cache_esquemas_figuras
 
         self.criar_formulario()
 
@@ -71,53 +95,116 @@ class FormularioFigura(tk.Toplevel):
             "WM_DELETE_WINDOW", self.destroy
         )
 
-    def criar_formulario(self):
+    def _posicionar_ao_lado(self):
+        """Posiciona o formulário à direita, dentro da área útil da tela."""
+        largura, altura = 760, 540
+        tela_largura = self.winfo_screenwidth()
+        tela_altura = self.winfo_screenheight()
+        x = min(self.master.winfo_rootx() + max(0, self.master.winfo_width() - largura), tela_largura - largura - 12)
+        y = max(20, min(self.master.winfo_rooty() + 45, tela_altura - altura - 70))
+        self.geometry(f"{largura}x{altura}+{max(0, x)}+{y}")
 
-        frm = ttk.Frame(self, padding=15)
+
+    def criar_formulario(self):
+        """Organiza os campos à esquerda e o esquema PNG à direita."""
+        frm = ttk.Frame(self, padding=10)
         frm.pack(fill="both", expand=True)
 
-        ttk.Label(
-            frm, text="Tipo de figura:"
-        ).pack(anchor="w")
+        # Área principal em duas colunas, mantendo os botões no rodapé.
+        conteudo = ttk.Frame(frm)
+        conteudo.pack(fill="both", expand=True)
+        conteudo.columnconfigure(0, weight=3)
+        conteudo.columnconfigure(1, weight=4)
+        conteudo.rowconfigure(0, weight=1)
 
+        painel_campos = ttk.Frame(conteudo)
+        painel_campos.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+
+        ttk.Label(painel_campos, text="Tipo de figura:").pack(anchor="w")
         cmb_tipo = ttk.Combobox(
-            frm,
-            textvariable=self.tipo,
-            values=self.TIPOS,
-            state="readonly"
+            painel_campos, textvariable=self.tipo,
+            values=self.TIPOS, state="readonly"
         )
         cmb_tipo.pack(fill="x", pady=(3, 12))
-
-        cmb_tipo.bind(
-            "<<ComboboxSelected>>",
-            lambda e: self.atualizar_campos()
-        )
+        cmb_tipo.bind("<<ComboboxSelected>>", lambda e: self.atualizar_campos())
 
         self.frm_parametros = ttk.LabelFrame(
-            frm,
-            text="Parâmetros geométricos",
-            padding=10
+            painel_campos, text="Parâmetros geométricos", padding=10
         )
-        self.frm_parametros.pack(
-            fill="both", expand=True
+        self.frm_parametros.pack(fill="both", expand=True)
+
+        painel_imagem = ttk.LabelFrame(
+            conteudo, text="Esquema dos parâmetros", padding=10
         )
+        painel_imagem.grid(row=0, column=1, sticky="nsew")
+        painel_imagem.columnconfigure(0, weight=1)
+        painel_imagem.rowconfigure(0, weight=1)
+
+        # tk.Label permite fixar o fundo branco mesmo no tema escuro do VS Code.
+        self.lbl_esquema = tk.Label(
+            painel_imagem, anchor="center", justify="center",
+            bg="white", fg="#555555", bd=0,
+        )
+        self.lbl_esquema.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(
+            painel_imagem,
+            text="Imagem ilustrativa (sem escala)",
+            foreground="gray",
+            anchor="center"
+        ).grid(row=1, column=0, sticky="ew", pady=(6, 0))
 
         frm_botoes = ttk.Frame(frm)
-        frm_botoes.pack(
-            fill="x", pady=(15, 0)
-        )
-
+        frm_botoes.pack(fill="x", pady=(8, 0))
         ttk.Button(
-            frm_botoes,
-            text="Cancelar",
-            command=self.destroy
+            frm_botoes, text="Fechar", command=self.destroy
         ).pack(side="right", padx=5)
-
         ttk.Button(
-            frm_botoes,
-            text="Confirmar",
+            frm_botoes, text="Salvar" if self.figura_original is not None else "Adicionar",
             command=self.confirmar
         ).pack(side="right", padx=5)
+
+    def atualizar_esquema(self):
+        """Mostra um esquema grande, com fundo branco e imagens em cache.
+
+        O Pillow, quando disponível, reduz o PNG com boa qualidade e compõe
+        eventuais transparências sobre branco. Sem Pillow, utiliza o Tkinter.
+        """
+        nome_arquivo = self.IMAGENS_FIGURAS.get(self.tipo.get())
+        if not nome_arquivo:
+            return
+
+        caminho = Path(__file__).resolve().parent / "figuras" / nome_arquivo
+        largura_max, altura_max = 380, 405
+        chave = (str(caminho), largura_max, altura_max)
+        imagem = self._cache_esquemas.get(chave)
+
+        if imagem is None:
+            try:
+                if Image is not None:
+                    # Carrega apenas na primeira seleção; thumbnail preserva
+                    # proporções e usa reamostragem de alta qualidade.
+                    with Image.open(caminho) as origem:
+                        origem = origem.convert("RGBA")
+                        origem.thumbnail((largura_max, altura_max), Image.Resampling.LANCZOS)
+                        fundo = Image.new("RGBA", origem.size, "white")
+                        fundo.alpha_composite(origem)
+                        imagem = ImageTk.PhotoImage(fundo.convert("RGB"), master=self)
+                else:
+                    # Alternativa sem dependências: redução em passos inteiros.
+                    original = tk.PhotoImage(file=str(caminho), master=self)
+                    fator = max(1, math.ceil(original.width() / largura_max),
+                                math.ceil(original.height() / altura_max))
+                    imagem = original.subsample(fator, fator) if fator > 1 else original
+                self._cache_esquemas[chave] = imagem
+            except (OSError, ValueError, tk.TclError):
+                self.imagem_esquema = None
+                self.lbl_esquema.configure(
+                    image="", text=f"Imagem não encontrada:\nfiguras/{nome_arquivo}"
+                )
+                return
+
+        self.imagem_esquema = imagem
+        self.lbl_esquema.configure(image=imagem, text="")
 
     def criar_campo(self, nome, valor="0"):
 
@@ -144,6 +231,7 @@ class FormularioFigura(tk.Toplevel):
         self.campos = {}
 
         tipo = self.tipo.get()
+        self.atualizar_esquema()
 
         if tipo == "Retangulo":
             self.criar_campo("b", "100")
@@ -170,7 +258,8 @@ class FormularioFigura(tk.Toplevel):
 
         self.criar_campo("x0", "0")
         self.criar_campo("y0", "0")
-        self.criar_campo("theta", "0")
+        if tipo != "Circulo":
+            self.criar_campo("theta", "0")
 
         ttk.Label(
             self.frm_parametros,
@@ -226,7 +315,7 @@ class FormularioFigura(tk.Toplevel):
             parametros = dict(
                 x0=self.obter_valor("x0"),
                 y0=self.obter_valor("y0"),
-                theta=self.obter_valor("theta"),
+                theta=self.obter_valor("theta") if tipo != "Circulo" else 0.0,
                 sinal=int(self.sinal.get())
             )
 
@@ -279,8 +368,16 @@ class FormularioFigura(tk.Toplevel):
                     "Tipo de figura inválido."
                 )
 
-            self.resultado = figura
-            self.destroy()
+            if self.figura_original is not None:
+                # Edição: salva a substituição e encerra o formulário.
+                self.resultado = figura
+                self.destroy()
+            elif self.ao_adicionar is not None:
+                # Inclusão: comunica a nova figura sem fechar a janela.
+                self.ao_adicionar(figura)
+            else:
+                # Compatibilidade com uso independente do formulário.
+                self.resultado = figura
 
         except (ValueError, TypeError, KeyError) as erro:
             messagebox.showerror(
@@ -327,7 +424,9 @@ class FormularioFigura(tk.Toplevel):
             )
 
         for nome, valor in valores.items():
-            campo = self.campos[nome]
+            campo = self.campos.get(nome)
+            if campo is None:
+                continue
             campo.delete(0, tk.END)
             campo.insert(0, str(valor))
 
@@ -1421,12 +1520,12 @@ class InterfacePyComposta(tk.Tk):
     def adicionar_figura(self):
         """Abre o formulário para criar uma figura."""
 
-        formulario = FormularioFigura(self)
-        self.wait_window(formulario)
-
-        if formulario.resultado is not None:
-            self.secao.adicionar(formulario.resultado)
+        def incluir(figura):
+            self.secao.adicionar(figura)
             self.atualizar_interface()
+
+        formulario = FormularioFigura(self, ao_adicionar=incluir)
+        self.wait_window(formulario)
 
     def editar_figura(self):
         """Edita a figura selecionada."""
