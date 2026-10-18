@@ -12,7 +12,21 @@
 
 As unidades seguem as dimensões fornecidas: por exemplo, medidas em cm produzem áreas em cm² e momentos de inércia em cm⁴.
 
-## Instalação e execução
+## Baixar e instalar no Windows
+
+Para utilizar o **PyComposta sem instalar Python**, baixe o instalador na página de versões do projeto:
+
+**[Baixar PyComposta para Windows (GitHub Releases)](https://github.com/felquevedo/PyComposta/releases/latest)**
+
+1. Acesse o link acima.
+2. Na versão mais recente, expanda a seção **Assets**, se necessário.
+3. Clique no arquivo `PyComposta_Setup_1.0.0.exe` (ou no instalador da versão mais recente) para fazer o download.
+4. Abra o arquivo `.exe` baixado e siga as instruções do assistente de instalação.
+5. Inicie o **PyComposta** pelo menu Iniciar ou pelo atalho na área de trabalho, caso tenha optado por criá-lo.
+
+O instalador inclui as dependências necessárias: **não é preciso instalar Python, Matplotlib ou outras bibliotecas separadamente**. O link acima funcionará quando a primeira versão estiver publicada no GitHub Releases do repositório `felquevedo/PyComposta`.
+
+## Instalação a partir do código-fonte (desenvolvedores)
 
 Requer **Python 3.10+**, Tkinter e as dependências do projeto.
 
