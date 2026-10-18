@@ -1,0 +1,39 @@
+# Python: bytecode e caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+ENV/
+
+# Distribuição e empacotamento
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDEs e editores
+.vscode/
+.idea/
+*.code-workspace
+
+# Arquivos temporários e do sistema
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
+*~
+
+# Arquivos locais de seções salvas (JSON)
+# Descomente a linha abaixo se não desejar versionar exemplos JSON:
+# *.json
