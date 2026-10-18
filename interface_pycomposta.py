@@ -1,9 +1,14 @@
 
 import tkinter as tk
+import copy
+import math
+from types import SimpleNamespace
 from tkinter import ttk, messagebox
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
+from matplotlib.patches import PathPatch
 
 from geometria.retangulo import Retangulo
 from geometria.circulo import Circulo
@@ -348,14 +353,29 @@ class InterfacePyComposta(tk.Tk):
         self.secao = SecaoComposta()
         self.figura_mpl = None
         self.canvas_mpl = None
+        self._resize_job = None
+        self._contornos_selecao = []
+        self.modo_poligono = False
+        self.vertices_desenho = []
+        self.artistas_desenho = []
+        self.sinal_poligono = 1
+        self.snap_ativo = tk.BooleanVar(value=True)
+        self.poligono_negativo = tk.BooleanVar(value=False)
+        self.bind("<Escape>", lambda _event: self.cancelar_poligono_mouse()
+                  if self.modo_poligono else None)
 
+        # Controles de visualização.
+        self.mostrar_eixos = tk.BooleanVar(value=True)
+        self.mostrar_centroide = tk.BooleanVar(value=True)
+        self.mostrar_por_partes = tk.BooleanVar(value=False)
+        self.mostrar_eixos_centrais = tk.BooleanVar(value=True)
+        self.mostrar_eixos_principais = tk.BooleanVar(value=True)
+        self.espacamento_x = tk.StringVar(value="20")
+        self.espacamento_y = tk.StringVar(value="20")
+
+        self.protocol("WM_DELETE_WINDOW", self.fechar_aplicacao)
         self.criar_interface()
         self.carregar_exemplo()
-
-        self.protocol(
-            "WM_DELETE_WINDOW",
-            self.fechar_aplicacao
-        )
 
     def criar_interface(self):
         """Cria os elementos da janela."""
@@ -369,10 +389,10 @@ class InterfacePyComposta(tk.Tk):
             row=0, column=0, sticky="nsew"
         )
 
-        frm_principal.columnconfigure(0, weight=1)
-        frm_principal.columnconfigure(1, weight=3)
-        frm_principal.rowconfigure(0, weight=3)
-        frm_principal.rowconfigure(1, weight=1)
+        frm_principal.columnconfigure(0, weight=0, minsize=245)
+        frm_principal.columnconfigure(1, weight=1)
+        frm_principal.rowconfigure(0, weight=1)
+        frm_principal.rowconfigure(1, weight=0)
 
         # Painel esquerdo
         frm_figuras = ttk.LabelFrame(
@@ -399,6 +419,7 @@ class InterfacePyComposta(tk.Tk):
             row=0, column=0,
             sticky="nsew"
         )
+        self.lst_figuras.bind("<<ListboxSelect>>", self.destacar_figura_selecionada)
 
         barra_rolagem = ttk.Scrollbar(
             frm_figuras,
@@ -450,8 +471,14 @@ class InterfacePyComposta(tk.Tk):
 
         ttk.Button(
             frm_botoes,
-            text="Atualizar",
-            command=self.atualizar_interface
+            text="Exibir todos os objetos",
+            command=self.exibir_todos_objetos
+        ).pack(fill="x", pady=3)
+
+        ttk.Button(
+            frm_botoes,
+            text="Limpar tudo",
+            command=self.limpar_tudo
         ).pack(fill="x", pady=3)
 
         # Painel do gráfico
@@ -467,7 +494,56 @@ class InterfacePyComposta(tk.Tk):
         )
 
         self.frm_grafico.columnconfigure(0, weight=1)
-        self.frm_grafico.rowconfigure(0, weight=1)
+        self.frm_grafico.rowconfigure(0, weight=0)
+        self.frm_grafico.rowconfigure(1, weight=1)
+        self.frm_grafico.rowconfigure(2, weight=0)
+
+        frm_opcoes = ttk.Frame(self.frm_grafico)
+        frm_opcoes.grid(row=0, column=0, sticky="ew", padx=8, pady=5)
+
+        opcoes = [
+            ("Eixos globais", self.mostrar_eixos),
+            ("Centroide", self.mostrar_centroide),
+            ("Eixos centroidais", self.mostrar_eixos_centrais),
+            ("Eixos principais", self.mostrar_eixos_principais),
+            ("Por partes", self.mostrar_por_partes),
+        ]
+        for texto, variavel in opcoes:
+            ttk.Checkbutton(
+                frm_opcoes,
+                text=texto,
+                variable=variavel,
+                command=self.atualizar_grafico,
+            ).pack(side="left", padx=8)
+
+        ttk.Checkbutton(
+            frm_opcoes, text="Snap na grade", variable=self.snap_ativo,
+            command=self._atualizar_preview_poligono,
+        ).pack(side="left", padx=8)
+
+        ttk.Checkbutton(
+            frm_opcoes, text="Polígono negativo", variable=self.poligono_negativo,
+        ).pack(side="left", padx=8)
+
+        self.lbl_desenho = ttk.Label(frm_opcoes, text="")
+        self.lbl_desenho.pack(side="left", padx=8)
+
+        # Campos inferiores para controlar a malha dos eixos.
+        frm_grade = ttk.Frame(self.frm_grafico)
+        frm_grade.grid(row=2, column=0, sticky="w", padx=10, pady=(3, 6))
+
+        ttk.Label(frm_grade, text="Espaçamento X:").pack(side="left", padx=(0, 4))
+        ent_x = ttk.Entry(frm_grade, textvariable=self.espacamento_x, width=9)
+        ent_x.pack(side="left", padx=(0, 18))
+
+        ttk.Label(frm_grade, text="Espaçamento Y:").pack(side="left", padx=(0, 4))
+        ent_y = ttk.Entry(frm_grade, textvariable=self.espacamento_y, width=9)
+        ent_y.pack(side="left", padx=(0, 12))
+
+        # Atualiza a grade automaticamente ao sair de qualquer campo.
+        for entrada in (ent_x, ent_y):
+            entrada.bind("<FocusOut>", lambda event: self.atualizar_grade())
+            entrada.bind("<Return>", lambda event: self.atualizar_grade())
 
         # Painel inferior
         frm_resultados = ttk.LabelFrame(
@@ -486,15 +562,16 @@ class InterfacePyComposta(tk.Tk):
 
         self.txt_resultados = tk.Text(
             frm_resultados,
-            height=11,
+            height=10,
             font=("Consolas", 10),
             wrap="none",
-            state="disabled"
+            state="disabled",
+            relief="flat",
+            padx=8,
+            pady=6,
         )
-        self.txt_resultados.grid(
-            row=0, column=0,
-            sticky="nsew"
-        )
+        self.txt_resultados.grid(row=0, column=0, sticky="nsew")
+
 
     def carregar_exemplo(self):
         """Carrega a seção composta de referência."""
@@ -518,9 +595,29 @@ class InterfacePyComposta(tk.Tk):
 
         self.atualizar_interface()
 
+    def limpar_tudo(self):
+        """Remove todas as figuras e reinicia o desenho, após confirmação."""
+        if not self.secao.figuras and not self.vertices_desenho:
+            return
+        if not messagebox.askyesno(
+            "Limpar tudo",
+            "Deseja remover todas as figuras e cancelar o desenho atual?",
+            parent=self,
+        ):
+            return
+        self.cancelar_poligono_mouse()
+        self.secao = SecaoComposta()
+        self.lst_figuras.selection_clear(0, tk.END)
+        self.atualizar_interface()
+
+    def exibir_todos_objetos(self):
+        """Restaura o enquadramento de todas as figuras e atualiza a vista."""
+        self.atualizar_interface()
+
     def atualizar_lista(self):
         """Atualiza a lista de figuras."""
 
+        selecao_anterior = self.lst_figuras.curselection()
         self.lst_figuras.delete(0, tk.END)
 
         for i, figura in enumerate(
@@ -540,50 +637,448 @@ class InterfacePyComposta(tk.Tk):
                 tk.END, descricao
             )
 
+        if selecao_anterior and selecao_anterior[0] < self.lst_figuras.size():
+            self.lst_figuras.selection_set(selecao_anterior[0])
+
+    def destacar_figura_selecionada(self, event=None):
+        """Destaca o contorno da figura escolhida, sem recriar o canvas."""
+        for artista in self._contornos_selecao:
+            artista.remove()
+        self._contornos_selecao.clear()
+
+        if self.figura_mpl is None or self.canvas_mpl is None:
+            return
+
+        selecao = self.lst_figuras.curselection()
+        if not selecao or selecao[0] >= len(self.secao.figuras):
+            self.canvas_mpl.draw_idle()
+            return
+
+        figura = self.secao.figuras[selecao[0]]
+        ax = self.figura_mpl.axes[0]
+
+        # Reutiliza o próprio renderizador geométrico para obter o contorno,
+        # incluindo rotações, curvas e polígonos, sem duplicar fórmulas.
+        figura_temporaria = None
+        try:
+            # Desenhar uma cópia positiva: a figura negativa isolada gera geometria vazia.
+            figura_contorno = copy.copy(figura)
+            figura_contorno.sinal = 1
+            figura_temporaria, ax_temp = desenhar_secao(
+                SecaoComposta([figura_contorno]),
+                mostrar_componentes=False,
+                mostrar_eixos=False,
+                mostrar_centroide=False,
+                mostrar_eixos_centrais=False,
+                mostrar_eixos_principais=False,
+                mostrar_propriedades=False,
+            )
+            caminhos = []
+            for patch in ax_temp.patches:
+                caminhos.append(patch.get_path().transformed(patch.get_transform()).transformed(ax_temp.transData.inverted()))
+            for colecao in ax_temp.collections:
+                for caminho in colecao.get_paths():
+                    # As coleções geradas pelo preenchimento usam coordenadas de dados.
+                    caminhos.append(caminho)
+
+            for caminho in caminhos:
+                contorno = PathPatch(
+                    caminho, facecolor="none", edgecolor="red",
+                    linewidth=2.5, zorder=100, joinstyle="round",
+                )
+                ax.add_patch(contorno)
+                self._contornos_selecao.append(contorno)
+        finally:
+            if figura_temporaria is not None:
+                plt.close(figura_temporaria)
+
+        self.canvas_mpl.draw_idle()
+
+    def _proporcao_area_grafica(self):
+        """Razão largura/altura da área útil do gráfico, em pixels."""
+        if self.canvas_mpl is None:
+            return 1.0
+        ax = self.figura_mpl.axes[0]
+        largura, altura = ax.get_window_extent().size
+        return largura / altura if altura > 0 else 1.0
+
+    def _ajustar_escala_grafica(self, manter_altura=True):
+        """Mantém uma unidade X com o mesmo tamanho visual de uma unidade Y.
+
+        Os eixos ocupam todo o painel; a escala é preservada pelos limites,
+        e não pelo encolhimento automático da caixa dos eixos.
+        """
+        if self.figura_mpl is None:
+            return
+        ax = self.figura_mpl.axes[0]
+        x0, x1 = ax.get_xlim()
+        y0, y1 = ax.get_ylim()
+        proporcao = self._proporcao_area_grafica()
+        if manter_altura:
+            largura_dados = (y1 - y0) * proporcao
+            centro = (x0 + x1) / 2
+            ax.set_xlim(centro - largura_dados / 2, centro + largura_dados / 2)
+        else:
+            altura_dados = (x1 - x0) / proporcao
+            centro = (y0 + y1) / 2
+            ax.set_ylim(centro - altura_dados / 2, centro + altura_dados / 2)
+        ax.set_autoscale_on(False)
+
+    def _zoom_scroll(self, event):
+        """Zoom centrado no cursor, mantendo a escala X/Y uniforme."""
+        if self.figura_mpl is None or self.canvas_mpl is None:
+            return
+        ax = self.figura_mpl.axes[0]
+        if event.inaxes is not ax or event.xdata is None or event.ydata is None:
+            return
+        if event.button == "up":
+            escala = 1 / 1.2
+        elif event.button == "down":
+            escala = 1.2
+        else:
+            return
+        x0, x1 = ax.get_xlim()
+        y0, y1 = ax.get_ylim()
+        px, py = event.xdata, event.ydata
+        ax.set_xlim(px + (x0 - px) * escala, px + (x1 - px) * escala)
+        ax.set_ylim(py + (y0 - py) * escala, py + (y1 - py) * escala)
+        ax.set_autoscale_on(False)
+        self.canvas_mpl.draw_idle()
+
+    def _ajustar_tamanho_grafico(self, event=None):
+        """Preenche o canvas e preserva a escala ao maximizar a janela."""
+        if self.figura_mpl is None or self.canvas_mpl is None:
+            return
+        widget = self.canvas_mpl.get_tk_widget()
+        largura, altura = widget.winfo_width(), widget.winfo_height()
+        if largura <= 2 or altura <= 2:
+            return
+        # A troca de Figure não redimensiona automaticamente a PhotoImage
+        # interna do FigureCanvasTkAgg. Redimensionar somente a Figure deixa
+        # a imagem antiga no canto esquerdo e uma faixa branca à direita.
+        # resize() atualiza a Figure E a imagem Tk com o tamanho real do widget.
+        self.canvas_mpl.resize(SimpleNamespace(width=largura, height=altura))
+        ax = self.figura_mpl.axes[0]
+        ax.set_position([0.035, 0.045, 0.95, 0.93])
+        ax.set_aspect("auto")
+        self._ajustar_escala_grafica(manter_altura=True)
+        self.canvas_mpl.draw_idle()
+
+    def _redimensionamento_solicitado(self, event):
+        """Evita redesenhos excessivos enquanto a janela é redimensionada."""
+        if self._resize_job is not None:
+            self.after_cancel(self._resize_job)
+        self._resize_job = self.after(90, self._finalizar_redimensionamento)
+
+    def _finalizar_redimensionamento(self):
+        self._resize_job = None
+        self._ajustar_tamanho_grafico()
+
     def atualizar_grafico(self):
-        """Atualiza o gráfico incorporado."""
+        """Redesenha a seção mantendo as grades e as opções selecionadas."""
+        if not self.secao.figuras:
+            # Seção vazia: evita cálculos de centroide/inércia indefinidos.
+            nova_figura, ax = plt.subplots()
+            ax.set_xlim(-50, 50)
+            ax.set_ylim(-50, 50)
+            # Mesmo sem figuras, os eixos globais devem permanecer visíveis
+            # quando a opção correspondente estiver marcada.
+            if self.mostrar_eixos.get():
+                ax.axhline(0, color="black", linewidth=1.3, zorder=8)
+                ax.axvline(0, color="black", linewidth=1.3, zorder=8)
+        else:
+            nova_figura, ax = desenhar_secao(
+                self.secao,
+                mostrar_componentes=False,
+                mostrar_eixos=self.mostrar_eixos.get(),
+                mostrar_centroide=self.mostrar_centroide.get(),
+                mostrar_eixos_centrais=self.mostrar_eixos_centrais.get(),
+                mostrar_eixos_principais=self.mostrar_eixos_principais.get(),
+                mostrar_propriedades=False,
+            )
+        # Os valores ficam reunidos no canto superior direito do gráfico,
+        # sem sobrepor textos aos centroides das figuras.
+        linhas_info = []
+        if self.secao.figuras and self.mostrar_eixos_principais.get():
+            imax, imin, _ = self.secao.inercias_principais()
+            linhas_info.extend((f'Iu = {imax:.4g}', f'Iv = {imin:.4g}'))
 
+        if self.mostrar_por_partes.get():
+            xlim, ylim = ax.get_xlim(), ax.get_ylim()
+            dimensao = max(xlim[1] - xlim[0], ylim[1] - ylim[0])
+            raio_eixos = 0.045 * dimensao
+            if linhas_info:
+                linhas_info.append('')
+            for indice, figura in enumerate(self.secao.figuras, start=1):
+                xc_p, yc_p = figura.centroide()
+                ax.plot([xc_p - raio_eixos, xc_p + raio_eixos],
+                        [yc_p, yc_p], '--', color='tab:blue', lw=1.2, zorder=11)
+                ax.plot([xc_p, xc_p],
+                        [yc_p - raio_eixos, yc_p + raio_eixos],
+                        '--', color='tab:blue', lw=1.2, zorder=11)
+                ax.plot(xc_p, yc_p, 'x', color='tab:blue',
+                        markersize=7, markeredgewidth=1.5, zorder=12)
+                ax.annotate(f'C{indice}', xy=(xc_p, yc_p), xytext=(6, 6),
+                            textcoords='offset points', fontsize=8,
+                            color='tab:blue', zorder=13)
+
+                # Para os vazios, as propriedades são exibidas como
+                # grandezas geométricas positivas; o sinal é identificado.
+                figura_positiva = copy.copy(figura)
+                figura_positiva.sinal = 1
+                area_p = figura_positiva.area()
+                if hasattr(figura_positiva, 'inercias_centrais'):
+                    ix_p, iy_p, ixy_p = figura_positiva.inercias_centrais()
+                else:
+                    ix_p, iy_p, ixy_p = figura_positiva.inercias_eixos()
+                tipo = ' (-)' if getattr(figura, 'sinal', 1) < 0 else ' (+)'
+                linhas_info.extend((
+                    f'Parte {indice}{tipo}: C({xc_p:.1f}, {yc_p:.1f})',
+                    f'  A = {area_p:.4g}',
+                    f'  Ix = {ix_p:.4g}   Iy = {iy_p:.4g}',
+                    f'  Ixy = {ixy_p:.4g}',
+                ))
+
+        if linhas_info:
+            ax.text(0.985, 0.985, '\n'.join(linhas_info),
+                    transform=ax.transAxes, ha='right', va='top',
+                    fontsize=8, color='tab:blue', zorder=14,
+                    bbox=dict(boxstyle='round,pad=0.4',
+                              facecolor='white', alpha=0.85,
+                              edgecolor='0.75'))
+
+        # O título pertence à janela Tkinter, não ao gráfico.
+        ax.set_title("")
+
+        try:
+            passo_x = float(self.espacamento_x.get().strip().replace(",", "."))
+            passo_y = float(self.espacamento_y.get().strip().replace(",", "."))
+            if not (0 < passo_x < float("inf") and 0 < passo_y < float("inf")):
+                raise ValueError
+        except ValueError:
+            plt.close(nova_figura)
+            messagebox.showerror(
+                "Espaçamento inválido",
+                "Informe espaçamentos positivos e finitos para X e Y.",
+                parent=self,
+            )
+            return
+
+        ax.xaxis.set_major_locator(MultipleLocator(passo_x))
+        ax.yaxis.set_major_locator(MultipleLocator(passo_y))
+        ax.grid(True, which="major", linestyle=":", alpha=0.35)
+
+        # Oculta letras, valores e marcas das coordenadas, preservando a grade.
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.tick_params(axis="both", which="both",
+                       labelbottom=False, labelleft=False,
+                       labeltop=False, labelright=False, length=0)
+        # A proporção geométrica será garantida pelos limites dos eixos.
+        # A caixa dos eixos pode, portanto, preencher toda a janela.
+        ax.set_aspect("auto")
+        ax.set_position([0.035, 0.045, 0.95, 0.93])
+
+        # O widget Tk do canvas é criado somente na primeira plotagem.
+        # Nas demais, substituímos apenas a Figure associada ao canvas,
+        # sem destruir o widget (evita o clarão causado pela recriação).
+        if self.canvas_mpl is None:
+            self.figura_mpl = nova_figura
+            self.canvas_mpl = FigureCanvasTkAgg(
+                self.figura_mpl, master=self.frm_grafico
+            )
+            self.canvas_mpl.mpl_connect("scroll_event", self._zoom_scroll)
+            self._conectar_eventos_poligono()
+            widget = self.canvas_mpl.get_tk_widget()
+            widget.grid(row=1, column=0, sticky="nsew")
+            widget.bind("<Configure>", self._redimensionamento_solicitado)
+            self.after_idle(self._ajustar_tamanho_grafico)
+        else:
+            figura_anterior = self.figura_mpl
+            largura, altura = self.figura_mpl.get_size_inches()
+            nova_figura.set_size_inches(largura, altura, forward=False)
+            self.canvas_mpl.figure = nova_figura
+            nova_figura.set_canvas(self.canvas_mpl)
+            self.figura_mpl = nova_figura
+            # Os callbacks do Matplotlib pertencem à Figure; reconectar
+            # após sua substituição para manter o zoom funcionando.
+            self.canvas_mpl.mpl_connect("scroll_event", self._zoom_scroll)
+            self._conectar_eventos_poligono()
+            plt.close(figura_anterior)
+
+        # Recria o traçado provisório na figura atual, se necessário.
+        self.artistas_desenho = []
+        if self.modo_poligono:
+            self._atualizar_preview_poligono()
+
+        # Sincroniza o tamanho do bitmap Tk após trocar a Figure.
+        # Apenas alterar Figure.set_size_inches não expande o bitmap exibido.
+        self._ajustar_tamanho_grafico()
+        self._contornos_selecao.clear()
+        self.destacar_figura_selecionada()
+        self.canvas_mpl.draw_idle()
+
+    def _conectar_eventos_poligono(self):
+        """Registra eventos na Figure atual (trocas invalidam os anteriores)."""
+        self.canvas_mpl.mpl_connect("button_press_event", self._clique_poligono)
+        self.canvas_mpl.mpl_connect("motion_notify_event", self._movimento_poligono)
+        self.canvas_mpl.mpl_connect("key_press_event", self._tecla_poligono)
+
+    def _ponto_snap(self, x, y):
+        """Snap para a interseção mais próxima da grade configurada."""
+        if not self.snap_ativo.get():
+            return (float(x), float(y))
+        try:
+            dx = float(self.espacamento_x.get().strip().replace(",", "."))
+            dy = float(self.espacamento_y.get().strip().replace(",", "."))
+            if not (math.isfinite(dx) and math.isfinite(dy) and dx > 0 and dy > 0):
+                raise ValueError
+        except ValueError:
+            return (float(x), float(y))
+        return (math.floor(x / dx + 0.5) * dx,
+                math.floor(y / dy + 0.5) * dy)
+
+    def iniciar_poligono_mouse(self):
+        """Inicia automaticamente o polígono no primeiro clique esquerdo."""
+        self.sinal_poligono = -1 if self.poligono_negativo.get() else 1
+        self.vertices_desenho = []
+        self.modo_poligono = True
+        self.lbl_desenho.configure(
+            text="Desenhando: direito/Enter conclui; Esc cancela"
+        )
         if self.canvas_mpl is not None:
-            self.canvas_mpl.get_tk_widget().destroy()
-            self.canvas_mpl = None
+            self.canvas_mpl.get_tk_widget().focus_set()
 
-        if self.figura_mpl is not None:
-            plt.close(self.figura_mpl)
-            self.figura_mpl = None
+    def _clique_poligono(self, event):
+        if not self.modo_poligono and event.button == 1 and event.inaxes is self.figura_mpl.axes[0]:
+            self.iniciar_poligono_mouse()
+        if not self.modo_poligono:
+            return
+        if event.button == 3:
+            self.concluir_poligono_mouse()
+            return
+        if event.button != 1 or event.inaxes is not self.figura_mpl.axes[0]:
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+        ponto = self._ponto_snap(event.xdata, event.ydata)
+        if self.vertices_desenho and math.dist(ponto, self.vertices_desenho[-1]) < 1e-9:
+            return
+        # Clique no primeiro vértice fecha a figura, se houver ao menos três.
+        if len(self.vertices_desenho) >= 3 and math.dist(ponto, self.vertices_desenho[0]) < 1e-9:
+            self.concluir_poligono_mouse()
+            return
+        self.vertices_desenho.append(ponto)
+        self._atualizar_preview_poligono()
 
-        self.figura_mpl, ax = desenhar_secao(
-            self.secao,
-            mostrar_componentes=False,
-            mostrar_propriedades=False
-        )
+    def _movimento_poligono(self, event):
+        if not self.modo_poligono or event.inaxes is not self.figura_mpl.axes[0]:
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+        self._atualizar_preview_poligono(self._ponto_snap(event.xdata, event.ydata))
 
-        self.figura_mpl.set_size_inches(7, 6)
+    def _tecla_poligono(self, event):
+        if not self.modo_poligono:
+            return
+        if event.key in ("escape", "esc"):
+            self.cancelar_poligono_mouse()
+        elif event.key in ("enter", "return"):
+            self.concluir_poligono_mouse()
+        elif event.key in ("backspace", "delete") and self.vertices_desenho:
+            self.vertices_desenho.pop()
+            self._atualizar_preview_poligono()
 
-        self.canvas_mpl = FigureCanvasTkAgg(
-            self.figura_mpl,
-            master=self.frm_grafico
-        )
+    def _atualizar_preview_poligono(self, cursor=None):
+        if self.figura_mpl is None or self.canvas_mpl is None:
+            return
+        for artista in self.artistas_desenho:
+            try:
+                artista.remove()
+            except (ValueError, NotImplementedError):
+                pass
+        self.artistas_desenho.clear()
+        if not self.modo_poligono:
+            self.canvas_mpl.draw_idle()
+            return
+        pontos = list(self.vertices_desenho)
+        if cursor is not None and (not pontos or math.dist(cursor, pontos[-1]) > 1e-9):
+            pontos.append(cursor)
+        if pontos:
+            ax = self.figura_mpl.axes[0]
+            linha, = ax.plot([p[0] for p in pontos], [p[1] for p in pontos],
+                             color="crimson", linestyle="--", linewidth=1.7,
+                             marker="o", markersize=5, zorder=30)
+            self.artistas_desenho.append(linha)
+            if len(self.vertices_desenho) >= 3:
+                linha_fecho, = ax.plot([pontos[-1][0], pontos[0][0]],
+                                      [pontos[-1][1], pontos[0][1]],
+                                      color="crimson", linestyle=":", zorder=29)
+                self.artistas_desenho.append(linha_fecho)
+        self.canvas_mpl.draw_idle()
 
-        self.canvas_mpl.draw()
+    def cancelar_poligono_mouse(self):
+        self.modo_poligono = False
+        self.vertices_desenho = []
+        self.lbl_desenho.configure(text="")
+        self._atualizar_preview_poligono()
 
-        self.canvas_mpl.get_tk_widget().grid(
-            row=0, column=0,
-            sticky="nsew"
-        )
+    def concluir_poligono_mouse(self):
+        if not self.modo_poligono:
+            return
+        pontos = list(self.vertices_desenho)
+        if len(pontos) < 3:
+            messagebox.showwarning("Polígono", "Marque pelo menos três vértices.", parent=self)
+            return
+        area_assinada = sum(pontos[i][0] * pontos[(i+1)%len(pontos)][1]
+                             - pontos[(i+1)%len(pontos)][0] * pontos[i][1]
+                             for i in range(len(pontos))) / 2
+        if abs(area_assinada) < 1e-10:
+            messagebox.showerror("Polígono", "Os vértices formam uma área nula.", parent=self)
+            return
+        try:
+            figura = Poligono(pontos, x0=0, y0=0, theta=0,
+                             sinal=self.sinal_poligono)
+            self.secao.adicionar(figura)
+            self.cancelar_poligono_mouse()
+            self.atualizar_interface()
+        except (ValueError, TypeError) as erro:
+            messagebox.showerror("Polígono inválido", str(erro), parent=self)
+
+    def atualizar_grade(self):
+        """Atualiza somente os localizadores da grade, sem recriar o gráfico."""
+        try:
+            passo_x = float(self.espacamento_x.get().strip().replace(",", "."))
+            passo_y = float(self.espacamento_y.get().strip().replace(",", "."))
+            if not (0 < passo_x < float("inf") and 0 < passo_y < float("inf")):
+                raise ValueError
+        except ValueError:
+            messagebox.showerror(
+                "Espaçamento inválido",
+                "Informe espaçamentos positivos e finitos para X e Y.",
+                parent=self,
+            )
+            return
+
+        if self.figura_mpl is None or self.canvas_mpl is None:
+            return
+        ax = self.figura_mpl.axes[0]
+        ax.xaxis.set_major_locator(MultipleLocator(passo_x))
+        ax.yaxis.set_major_locator(MultipleLocator(passo_y))
+        self.canvas_mpl.draw_idle()
 
     def atualizar_resultados(self):
-        """Atualiza o painel numérico."""
-
+        """Exibe os resultados em texto, coerentes com as unidades de entrada."""
+        if not self.secao.figuras:
+            self.txt_resultados.configure(state="normal")
+            self.txt_resultados.delete("1.0", tk.END)
+            self.txt_resultados.insert("1.0", "Nenhuma figura adicionada.")
+            self.txt_resultados.configure(state="disabled")
+            return
         A = self.secao.area()
         xc, yc = self.secao.centroide()
-
-        Ix, Iy, Ixy = (
-            self.secao.inercias_centrais()
-        )
-
-        Imax, Imin, angulo = (
-            self.secao.inercias_principais()
-        )
+        Ix, Iy, Ixy = self.secao.inercias_centrais()
+        Imax, Imin, angulo = self.secao.inercias_principais()
 
         texto = (
             f"Área total:       {A:14.3f}\n"
@@ -592,26 +1087,26 @@ class InterfacePyComposta(tk.Tk):
             f"Ix central:       {Ix:14.3e}\n"
             f"Iy central:       {Iy:14.3e}\n"
             f"Ixy central:      {Ixy:14.3e}\n"
-            f"Imax:             {Imax:14.3e}\n"
-            f"Imin:             {Imin:14.3e}\n"
-            f"Ângulo principal: {angulo:14.3f}°"
+            f"Iu:               {Imax:14.3e}\n"
+            f"Iv:               {Imin:14.3e}\n"
+            f"Ângulo principal: {angulo:14.3f}\n\n"
+            "Consistência dimensional: resultados nas unidades derivadas das entradas."
         )
+        self.txt_resultados.configure(state="normal")
+        self.txt_resultados.delete("1.0", tk.END)
+        self.txt_resultados.insert("1.0", texto)
+        self.txt_resultados.configure(state="disabled")
 
-        self.txt_resultados.configure(
-            state="normal"
-        )
-
-        self.txt_resultados.delete(
-            "1.0", tk.END
-        )
-
-        self.txt_resultados.insert(
-            tk.END, texto
-        )
-
-        self.txt_resultados.configure(
-            state="disabled"
-        )
+    def fechar_aplicacao(self):
+        """Libera o gráfico e encerra a janela principal."""
+        if self._resize_job is not None:
+            self.after_cancel(self._resize_job)
+            self._resize_job = None
+        if self.figura_mpl is not None:
+            plt.close(self.figura_mpl)
+            self.figura_mpl = None
+        self.quit()
+        self.destroy()
 
     def atualizar_interface(self):
         """Atualiza os três painéis."""
@@ -685,15 +1180,6 @@ class InterfacePyComposta(tk.Tk):
             del self.secao.figuras[indice]
             self.atualizar_interface()
 
-    def fechar_aplicacao(self):
-        """Encerra a interface e libera os recursos gráficos."""
-
-        if self.figura_mpl is not None:
-            plt.close(self.figura_mpl)
-            self.figura_mpl = None
-
-        self.quit()
-        self.destroy()
 
 if __name__ == "__main__":
     app = InterfacePyComposta()
