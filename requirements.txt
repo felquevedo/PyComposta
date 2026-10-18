@@ -1,6 +1,7 @@
 # Dependências para executar o PyComposta
 matplotlib>=3.8,<4
 Pillow>=10,<13
+shapely>=2.0,<3
 
 # tkinter integra a biblioteca padrão do Python.
 # No Linux, pode ser necessário instalar python3-tk pelo gerenciador do sistema.
