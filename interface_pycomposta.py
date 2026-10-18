@@ -2,8 +2,10 @@
 import tkinter as tk
 import copy
 import math
+import json
+from pathlib import Path
 from types import SimpleNamespace
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
@@ -375,7 +377,183 @@ class InterfacePyComposta(tk.Tk):
 
         self.protocol("WM_DELETE_WINDOW", self.fechar_aplicacao)
         self.criar_interface()
+        self.criar_menu()
         self.carregar_exemplo()
+
+    def criar_menu(self):
+        """Menu principal para persistência de seções e informações do aplicativo."""
+        barra = tk.Menu(self)
+        arquivo = tk.Menu(barra, tearoff=False)
+        arquivo.add_command(label="Abrir...", command=self.abrir_arquivo, accelerator="Ctrl+O")
+        arquivo.add_command(label="Salvar...", command=self.salvar_arquivo, accelerator="Ctrl+S")
+        arquivo.add_separator()
+        arquivo.add_command(label="Fechar", command=self.fechar_aplicacao, accelerator="Alt+F4")
+        barra.add_cascade(label="Arquivo", menu=arquivo)
+        barra.add_command(label="Sobre", command=self.mostrar_sobre)
+        self.config(menu=barra)
+        self.bind_all("<Control-o>", lambda e: self.abrir_arquivo())
+        self.bind_all("<Control-s>", lambda e: self.salvar_arquivo())
+
+    @staticmethod
+    def _serializar_figura(figura):
+        tipo = type(figura).__name__
+        dados = {"tipo": tipo, "x0": float(figura.x0), "y0": float(figura.y0),
+                 "theta": float(figura.theta), "sinal": int(figura.sinal)}
+        if tipo == "Retangulo":
+            dados.update(b=float(figura.b), h=float(figura.h))
+        elif tipo in ("Circulo", "Semicirculo", "QuartoCirculo"):
+            dados["r"] = float(figura.r)
+        elif tipo in ("Triangulo", "Poligono"):
+            dados["vertices"] = [[float(x), float(y)] for x, y in figura.vertices]
+        else:
+            raise ValueError(f"Tipo de figura não suportado: {tipo}")
+        return dados
+
+    @staticmethod
+    def _desserializar_figura(dados):
+        if not isinstance(dados, dict):
+            raise ValueError("Dados de figura inválidos.")
+        tipo = dados["tipo"]
+        parametros = {chave: float(dados[chave]) for chave in ("x0", "y0", "theta")}
+        parametros["sinal"] = int(dados["sinal"])
+        if parametros["sinal"] not in (-1, 1):
+            raise ValueError("O sinal da figura deve ser +1 ou -1.")
+        if tipo == "Retangulo":
+            return Retangulo(b=float(dados["b"]), h=float(dados["h"]), **parametros)
+        if tipo in ("Circulo", "Semicirculo", "QuartoCirculo"):
+            classe = {"Circulo": Circulo, "Semicirculo": Semicirculo,
+                      "QuartoCirculo": QuartoCirculo}[tipo]
+            return classe(r=float(dados["r"]), **parametros)
+        if tipo in ("Triangulo", "Poligono"):
+            vertices = [(float(x), float(y)) for x, y in dados["vertices"]]
+            if tipo == "Triangulo":
+                if len(vertices) != 3:
+                    raise ValueError("Triângulo deve conter três vértices.")
+                return Triangulo(*vertices, **parametros)
+            return Poligono(vertices, **parametros)
+        raise ValueError(f"Tipo de figura desconhecido: {tipo}")
+
+    def salvar_arquivo(self):
+        caminho = filedialog.asksaveasfilename(
+            parent=self, title="Salvar seção", defaultextension=".json",
+            filetypes=[("Seção PyComposta (*.json)", "*.json"), ("Todos os arquivos", "*.*")],
+        )
+        if not caminho:
+            return
+        try:
+            dados = {
+                "formato": "PyComposta", "versao_formato": 1,
+                "figuras": [self._serializar_figura(f) for f in self.secao.figuras],
+                "visualizacao": {
+                    "eixos_globais": self.mostrar_eixos.get(),
+                    "centroide": self.mostrar_centroide.get(),
+                    "eixos_centroidais": self.mostrar_eixos_centrais.get(),
+                    "eixos_principais": self.mostrar_eixos_principais.get(),
+                    "por_partes": self.mostrar_por_partes.get(),
+                    "snap": self.snap_ativo.get(),
+                    "poligono_negativo": self.poligono_negativo.get(),
+                    "espacamento_x": self.espacamento_x.get(),
+                    "espacamento_y": self.espacamento_y.get(),
+                },
+            }
+            Path(caminho).write_text(json.dumps(dados, indent=2, ensure_ascii=False), encoding="utf-8")
+        except (OSError, TypeError, ValueError) as erro:
+            messagebox.showerror("Erro ao salvar", str(erro), parent=self)
+
+    def abrir_arquivo(self):
+        caminho = filedialog.askopenfilename(
+            parent=self, title="Abrir seção",
+            filetypes=[("Seção PyComposta (*.json)", "*.json"), ("Todos os arquivos", "*.*")],
+        )
+        if not caminho:
+            return
+        try:
+            dados = json.loads(Path(caminho).read_text(encoding="utf-8"))
+            if not isinstance(dados, dict) or dados.get("formato") != "PyComposta":
+                raise ValueError("O arquivo não contém uma seção PyComposta válida.")
+            if dados.get("versao_formato") != 1:
+                raise ValueError("Versão do formato de arquivo não suportada.")
+            figuras = [self._desserializar_figura(item) for item in dados["figuras"]]
+            nova_secao = SecaoComposta(figuras)
+            if figuras:
+                # Validação antecipada, antes de substituir o projeto aberto.
+                nova_secao.area()
+                nova_secao.centroide()
+            visual = dados.get("visualizacao", {})
+            if not isinstance(visual, dict):
+                raise ValueError("Configuração de visualização inválida.")
+            for chave in ("espacamento_x", "espacamento_y"):
+                passo = float(str(visual.get(chave, "20")).replace(",", "."))
+                if not math.isfinite(passo) or passo <= 0:
+                    raise ValueError(f"Espaçamento inválido: {chave}")
+        except (OSError, ValueError, TypeError, KeyError, IndexError) as erro:
+            messagebox.showerror("Erro ao abrir", str(erro), parent=self)
+            return
+        self.cancelar_poligono_mouse()
+        self.secao = nova_secao
+        self.lst_figuras.selection_clear(0, tk.END)
+        opcoes = {
+            "eixos_globais": self.mostrar_eixos,
+            "centroide": self.mostrar_centroide,
+            "eixos_centroidais": self.mostrar_eixos_centrais,
+            "eixos_principais": self.mostrar_eixos_principais,
+            "por_partes": self.mostrar_por_partes,
+            "snap": self.snap_ativo,
+            "poligono_negativo": self.poligono_negativo,
+            "espacamento_x": self.espacamento_x,
+            "espacamento_y": self.espacamento_y,
+        }
+        for chave, variavel in opcoes.items():
+            if chave in visual:
+                variavel.set(visual[chave])
+        self.atualizar_interface()
+
+    def mostrar_sobre(self):
+        janela = tk.Toplevel(self)
+        janela.title("Sobre o PyComposta")
+        janela.resizable(False, False)
+        janela.transient(self)
+        janela.grab_set()
+        painel = ttk.Frame(janela, padding=24)
+        painel.pack(fill="both", expand=True)
+        # Reserva espaço para o logotipo institucional. Se existir um arquivo
+        # logo_ufrgs.png junto ao script, ele é exibido automaticamente.
+        area_logo = ttk.Frame(painel, width=220, height=105, relief="groove", borderwidth=1)
+        area_logo.pack(pady=(0, 14))
+        area_logo.pack_propagate(False)
+        caminho_logo = Path(__file__).resolve().parent / "logo_ufrgs.png"
+        try:
+            if not caminho_logo.is_file():
+                raise FileNotFoundError
+            imagem_logo = tk.PhotoImage(file=str(caminho_logo))
+            # Reduz imagens grandes, sem dependências adicionais.
+            fator = max(1, math.ceil(max(imagem_logo.width() / 200,
+                                          imagem_logo.height() / 90)))
+            if fator > 1:
+                imagem_logo = imagem_logo.subsample(fator, fator)
+            rotulo_logo = ttk.Label(area_logo, image=imagem_logo)
+            rotulo_logo.image = imagem_logo  # mantém referência à imagem
+            rotulo_logo.place(relx=0.5, rely=0.5, anchor="center")
+        except (FileNotFoundError, tk.TclError):
+            ttk.Label(area_logo, text="Espaço para o logotipo da UFRGS",
+                      foreground="gray", anchor="center", justify="center",
+                      wraplength=190).place(relx=0.5, rely=0.5, anchor="center")
+        ttk.Label(painel, text="PyComposta", font=("Segoe UI", 18, "bold")).pack(pady=(0, 6))
+        ttk.Label(painel, text="Propriedades geométricas de seções compostas",
+                  font=("Segoe UI", 10)).pack(pady=(0, 14))
+        ttk.Separator(painel, orient="horizontal").pack(fill="x", pady=8)
+        ttk.Label(painel, text="Desenvolvimento: Felipe Quevedo", justify="center").pack(pady=3)
+        ttk.Label(painel, text="Universidade Federal do Rio Grande do Sul (UFRGS)",
+                  justify="center").pack(pady=3)
+        ttk.Label(painel, text="Aplicativo para estudo e cálculo de propriedades\n"
+                  "geométricas de seções planas compostas.", justify="center").pack(pady=12)
+        ttk.Label(painel, text="Uso acadêmico e educacional. Verifique os resultados\n"
+                  "antes de utilizá-los em aplicações profissionais.", justify="center",
+                  foreground="gray").pack(pady=6)
+        ttk.Button(painel, text="Fechar", command=janela.destroy).pack(pady=(16, 0))
+        janela.update_idletasks()
+        janela.geometry(f"+{self.winfo_rootx() + max(0, (self.winfo_width()-janela.winfo_reqwidth())//2)}"
+                       f"+{self.winfo_rooty() + max(0, (self.winfo_height()-janela.winfo_reqheight())//2)}")
 
     def criar_interface(self):
         """Cria os elementos da janela."""
@@ -784,8 +962,8 @@ class InterfacePyComposta(tk.Tk):
             # Mesmo sem figuras, os eixos globais devem permanecer visíveis
             # quando a opção correspondente estiver marcada.
             if self.mostrar_eixos.get():
-                ax.axhline(0, color="black", linewidth=1.3, zorder=8)
-                ax.axvline(0, color="black", linewidth=1.3, zorder=8)
+                ax.axhline(0, color="0.35", linewidth=0.8, alpha=0.75, zorder=2)
+                ax.axvline(0, color="0.35", linewidth=0.8, alpha=0.75, zorder=2)
         else:
             nova_figura, ax = desenhar_secao(
                 self.secao,
@@ -938,6 +1116,15 @@ class InterfacePyComposta(tk.Tk):
         return (math.floor(x / dx + 0.5) * dx,
                 math.floor(y / dy + 0.5) * dy)
 
+    def _proximo_do_primeiro_vertice(self, ponto, tolerancia_px=12):
+        """Com snap desligado, detecta proximidade em pixels (independe do zoom)."""
+        if self.snap_ativo.get() or not self.vertices_desenho or self.figura_mpl is None:
+            return False
+        ax = self.figura_mpl.axes[0]
+        p0 = ax.transData.transform(self.vertices_desenho[0])
+        p1 = ax.transData.transform(ponto)
+        return math.dist(p0, p1) <= tolerancia_px
+
     def iniciar_poligono_mouse(self):
         """Inicia automaticamente o polígono no primeiro clique esquerdo."""
         self.sinal_poligono = -1 if self.poligono_negativo.get() else 1
@@ -965,7 +1152,7 @@ class InterfacePyComposta(tk.Tk):
         if self.vertices_desenho and math.dist(ponto, self.vertices_desenho[-1]) < 1e-9:
             return
         # Clique no primeiro vértice fecha a figura, se houver ao menos três.
-        if len(self.vertices_desenho) >= 3 and math.dist(ponto, self.vertices_desenho[0]) < 1e-9:
+        if len(self.vertices_desenho) >= 3 and (math.dist(ponto, self.vertices_desenho[0]) < 1e-9 or self._proximo_do_primeiro_vertice(ponto)):
             self.concluir_poligono_mouse()
             return
         self.vertices_desenho.append(ponto)
@@ -976,7 +1163,10 @@ class InterfacePyComposta(tk.Tk):
             return
         if event.xdata is None or event.ydata is None:
             return
-        self._atualizar_preview_poligono(self._ponto_snap(event.xdata, event.ydata))
+        ponto = self._ponto_snap(event.xdata, event.ydata)
+        if len(self.vertices_desenho) >= 3 and self._proximo_do_primeiro_vertice(ponto):
+            ponto = self.vertices_desenho[0]
+        self._atualizar_preview_poligono(ponto)
 
     def _tecla_poligono(self, event):
         if not self.modo_poligono:
