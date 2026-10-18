@@ -34,6 +34,9 @@ Desktop.ini
 *.bak
 *~
 
+# pytest
+.pytest_cache/
+
 # Arquivos locais de seções salvas (JSON)
 # Descomente a linha abaixo se não desejar versionar exemplos JSON:
 # *.json
