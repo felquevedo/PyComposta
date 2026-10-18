@@ -1,0 +1,71 @@
+{
+  "formato": "PyComposta",
+  "versao_formato": 1,
+  "figuras": [
+    {
+      "tipo": "Semicirculo",
+      "x0": 0.0,
+      "y0": 0.0,
+      "theta": 90.0,
+      "sinal": 1,
+      "r": 25.0
+    },
+    {
+      "tipo": "Retangulo",
+      "x0": 0.0,
+      "y0": -25.0,
+      "theta": 0.0,
+      "sinal": 1,
+      "b": 100.0,
+      "h": 50.0
+    },
+    {
+      "tipo": "Circulo",
+      "x0": 0.0,
+      "y0": 0.0,
+      "theta": 0.0,
+      "sinal": -1,
+      "r": 15.0
+    },
+    {
+      "tipo": "QuartoCirculo",
+      "x0": 100.0,
+      "y0": 0.0,
+      "theta": 180.0,
+      "sinal": -1,
+      "r": 25.0
+    },
+    {
+      "tipo": "Triangulo",
+      "x0": 0.0,
+      "y0": 0.0,
+      "theta": 0.0,
+      "sinal": -1,
+      "vertices": [
+        [
+          50.0,
+          25.0
+        ],
+        [
+          100.0,
+          25.0
+        ],
+        [
+          100.0,
+          0.0
+        ]
+      ]
+    }
+  ],
+  "visualizacao": {
+    "eixos_globais": true,
+    "centroide": true,
+    "eixos_centroidais": true,
+    "eixos_principais": true,
+    "por_partes": false,
+    "snap": true,
+    "poligono_negativo": false,
+    "espacamento_x": "20",
+    "espacamento_y": "20"
+  }
+}

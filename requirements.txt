@@ -1,4 +1,1 @@
-# Dependências externas do PyComposta
-# tkinter faz parte da biblioteca padrão do Python (em algumas distribuições Linux,
-# pode ser necessário instalar o pacote do sistema python3-tk).
 matplotlib>=3.8,<4

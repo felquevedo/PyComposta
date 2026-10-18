@@ -1,0 +1,44 @@
+{
+  "formato": "PyComposta",
+  "versao_formato": 1,
+  "figuras": [
+    {
+      "tipo": "Retangulo",
+      "x0": -300.0,
+      "y0": -50.0,
+      "theta": 0.0,
+      "sinal": 1,
+      "b": 600.0,
+      "h": 100.0
+    },
+    {
+      "tipo": "Retangulo",
+      "x0": -300.0,
+      "y0": 50.0,
+      "theta": 0.0,
+      "sinal": 1,
+      "b": 100.0,
+      "h": 300.0
+    },
+    {
+      "tipo": "Retangulo",
+      "x0": 200.0,
+      "y0": -350.0,
+      "theta": 0.0,
+      "sinal": 1,
+      "b": 100.0,
+      "h": 300.0
+    }
+  ],
+  "visualizacao": {
+    "eixos_globais": true,
+    "centroide": true,
+    "eixos_centroidais": true,
+    "eixos_principais": true,
+    "por_partes": true,
+    "snap": true,
+    "poligono_negativo": false,
+    "espacamento_x": "20",
+    "espacamento_y": "20"
+  }
+}
