@@ -1,8 +1,14 @@
-"""Casos originais de poligono, migrados de __main__ sem alterar as asserções."""
+"""Testes de poligono.
+
+Cada teste documenta o objetivo do caso e compara valores numericos
+com resultados de referencia usando a funcao verificar.
+Os cenarios migrados mantem verificacoes acumuladas do codigo original.
+"""
 from geometria.poligono import *
 from geometria.retangulo import Retangulo
 from geometria.triangulo import Triangulo
 def verificar(valor, esperado):
+    """Compara resultado e referencia com tolerancias numericas."""
     assert isclose(
         valor, esperado,
         rel_tol=1e-9,
@@ -10,7 +16,11 @@ def verificar(valor, esperado):
     ), f"Esperado {esperado}, obtido {valor}"
 
 
-def test_original_01():
+def test_retangulo_equivalente_com_quatro_vertices():
+    """Verifica retangulo equivalente com quatro vertices.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     p1 = Poligono([
         (0, 0), (4, 0),
         (4, 2), (0, 2)
@@ -25,7 +35,11 @@ def test_original_01():
     verificar(Ixy, 0)
 
 
-def test_original_02():
+def test_invariancia_a_ordem_dos_vertices():
+    """Verifica invariancia a ordem dos vertices.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     p1 = Poligono([
         (0, 0), (4, 0),
         (4, 2), (0, 2)
@@ -51,7 +65,11 @@ def test_original_02():
         verificar(a, b)
 
 
-def test_original_03():
+def test_triangulo_equivalente_a_classe_triangulo():
+    """Verifica triangulo equivalente a classe triangulo.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     p1 = Poligono([
         (0, 0), (4, 0),
         (4, 2), (0, 2)
@@ -93,7 +111,11 @@ def test_original_03():
         verificar(a, b)
 
 
-def test_original_04():
+def test_poligono_concavo_em_forma_de_l():
+    """Verifica poligono concavo em forma de l.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     p1 = Poligono([
         (0, 0), (4, 0),
         (4, 2), (0, 2)
@@ -147,7 +169,11 @@ def test_original_04():
     verificar(Ixy, -3.0)
 
 
-def test_original_05():
+def test_poligono_equivalente_a_retangulo_rotacionado():
+    """Verifica poligono equivalente a retangulo rotacionado.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     p1 = Poligono([
         (0, 0), (4, 0),
         (4, 2), (0, 2)
@@ -218,7 +244,11 @@ def test_original_05():
         verificar(a, b)
 
 
-def test_original_06():
+def test_momentos_principais_e_eixos_rotacionados():
+    """Verifica momentos principais e eixos rotacionados.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     p1 = Poligono([
         (0, 0), (4, 0),
         (4, 2), (0, 2)
@@ -299,7 +329,11 @@ def test_original_06():
     verificar(Iuv, 0)
 
 
-def test_original_07():
+def test_validacao_de_vertices_e_poligono_vazado():
+    """Verifica validacao de vertices e poligono vazado.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     p1 = Poligono([
         (0, 0), (4, 0),
         (4, 2), (0, 2)

@@ -1,6 +1,12 @@
-"""Casos originais de semicirculo, migrados de __main__ sem alterar as asserções."""
+"""Testes de semicirculo.
+
+Cada teste documenta o objetivo do caso e compara valores numericos
+com resultados de referencia usando a funcao verificar.
+Os cenarios migrados mantem verificacoes acumuladas do codigo original.
+"""
 from geometria.semicirculo import *
 def verificar(valor, esperado):
+    """Compara resultado e referencia com tolerancias numericas."""
     assert isclose(
         valor, esperado,
         rel_tol=1e-9,
@@ -8,7 +14,11 @@ def verificar(valor, esperado):
     ), f"Esperado {esperado}, obtido {valor}"
 
 
-def test_original_01():
+def test_area_centroide_e_inercias_basicas():
+    """Verifica area centroide e inercias basicas.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     s1 = Semicirculo(r=2)
     verificar(s1.area(), 2*pi)
     xc, yc = s1.centroide()
@@ -20,7 +30,11 @@ def test_original_01():
     verificar(Ixy, 0.0)
 
 
-def test_original_02():
+def test_inercia_apos_rotacao():
+    """Verifica inercia apos rotacao.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     s1 = Semicirculo(r=2)
     verificar(s1.area(), 2*pi)
     xc, yc = s1.centroide()
@@ -36,7 +50,11 @@ def test_original_02():
     verificar(Ixy, 0.0)
 
 
-def test_original_03():
+def test_centroide_apos_translacao_e_rotacao():
+    """Verifica centroide apos translacao e rotacao.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     s1 = Semicirculo(r=2)
     verificar(s1.area(), 2*pi)
     xc, yc = s1.centroide()
@@ -62,7 +80,11 @@ def test_original_03():
     verificar(Ixy, 0.0)
 
 
-def test_original_04():
+def test_momentos_principais_do_semicirculo():
+    """Verifica momentos principais do semicirculo.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     s1 = Semicirculo(r=2)
     verificar(s1.area(), 2*pi)
     xc, yc = s1.centroide()
@@ -92,7 +114,11 @@ def test_original_04():
     verificar(angulo, -90.0)
 
 
-def test_original_05():
+def test_rejeicao_de_raios_invalidos():
+    """Verifica rejeicao de raios invalidos.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     s1 = Semicirculo(r=2)
     verificar(s1.area(), 2*pi)
     xc, yc = s1.centroide()

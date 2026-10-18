@@ -1,4 +1,9 @@
-"""Casos originais de secao_composta, migrados de __main__ sem alterar as asserções."""
+"""Testes de secao composta.
+
+Cada teste documenta o objetivo do caso e compara valores numericos
+com resultados de referencia usando a funcao verificar.
+Os cenarios migrados mantem verificacoes acumuladas do codigo original.
+"""
 from geometria.secao_composta import *
 from math import isclose, pi
 from geometria.retangulo import Retangulo
@@ -6,6 +11,7 @@ from geometria.circulo import Circulo
 from geometria.semicirculo import Semicirculo
 from geometria.triangulo import Triangulo
 def verificar(valor, esperado):
+    """Compara resultado e referencia com tolerancias numericas."""
     assert isclose(
         valor, esperado,
         rel_tol=1e-8,
@@ -13,7 +19,11 @@ def verificar(valor, esperado):
     ), f"Esperado {esperado}, obtido {valor}"
 
 
-def test_original_01():
+def test_dois_retangulos_adjacentes():
+    """Verifica dois retangulos adjacentes.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     secao = SecaoComposta([
         Retangulo(b=2, h=4),
         Retangulo(b=2, h=4, x0=2)
@@ -28,7 +38,11 @@ def test_original_01():
     verificar(Ixy, 0)
 
 
-def test_original_02():
+def test_retangulo_com_furo_circular_central():
+    """Verifica retangulo com furo circular central.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     secao = SecaoComposta([
         Retangulo(b=2, h=4),
         Retangulo(b=2, h=4, x0=2)
@@ -55,7 +69,11 @@ def test_original_02():
     verificar(Ixy, 0)
 
 
-def test_original_03():
+def test_secao_mista_com_figuras_positivas_e_vazadas():
+    """Verifica secao mista com figuras positivas e vazadas.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     secao = SecaoComposta([
         Retangulo(b=2, h=4),
         Retangulo(b=2, h=4, x0=2)
@@ -106,7 +124,11 @@ def test_original_03():
     verificar(Ixy, 4795975.925487)
 
 
-def test_original_04():
+def test_momentos_principais_e_transformacao_de_eixos_da_secao_mista():
+    """Verifica momentos principais e transformacao de eixos da secao mista.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     secao = SecaoComposta([
         Retangulo(b=2, h=4),
         Retangulo(b=2, h=4, x0=2)

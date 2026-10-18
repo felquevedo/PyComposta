@@ -1,6 +1,12 @@
-"""Casos originais de circulo, migrados de __main__ sem alterar as asserções."""
+"""Testes de circulo.
+
+Cada teste documenta o objetivo do caso e compara valores numericos
+com resultados de referencia usando a funcao verificar.
+Os cenarios migrados mantem verificacoes acumuladas do codigo original.
+"""
 from geometria.circulo import *
 def verificar(valor, esperado):
+    """Compara resultado e referencia com tolerancias numericas."""
     assert isclose(
         valor, esperado,
         rel_tol=1e-9,
@@ -8,7 +14,11 @@ def verificar(valor, esperado):
     ), f"Esperado {esperado}, obtido {valor}"
 
 
-def test_original_01():
+def test_area_centroide_e_inercias_basicas():
+    """Verifica area centroide e inercias basicas.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     c1 = Circulo(r=2)
     verificar(c1.area(), 4*pi)
     xc, yc = c1.centroide()
@@ -20,7 +30,11 @@ def test_original_01():
     verificar(Ixy, 0.0)
 
 
-def test_original_02():
+def test_translacao_e_rotacao_sem_alterar_inercias():
+    """Verifica translacao e rotacao sem alterar inercias.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     c1 = Circulo(r=2)
     verificar(c1.area(), 4*pi)
     xc, yc = c1.centroide()
@@ -46,7 +60,11 @@ def test_original_02():
     verificar(Ixy, 0.0)
 
 
-def test_original_03():
+def test_inercias_em_relacao_a_origem():
+    """Verifica inercias em relacao a origem.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     c1 = Circulo(r=2)
     verificar(c1.area(), 4*pi)
     xc, yc = c1.centroide()
@@ -76,7 +94,11 @@ def test_original_03():
     verificar(Ixy, 48*pi)
 
 
-def test_original_04():
+def test_momentos_principais_do_circulo():
+    """Verifica momentos principais do circulo.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     c1 = Circulo(r=2)
     verificar(c1.area(), 4*pi)
     xc, yc = c1.centroide()
@@ -110,7 +132,11 @@ def test_original_04():
     verificar(angulo, 0.0)
 
 
-def test_original_05():
+def test_transformacao_de_inercias_para_outros_eixos():
+    """Verifica transformacao de inercias para outros eixos.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     c1 = Circulo(r=2)
     verificar(c1.area(), 4*pi)
     xc, yc = c1.centroide()
@@ -156,7 +182,11 @@ def test_original_05():
     verificar(Iuv, 48*pi)
 
 
-def test_original_06():
+def test_rejeicao_de_raios_invalidos_e_circulo_vazado():
+    """Verifica rejeicao de raios invalidos e circulo vazado.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     c1 = Circulo(r=2)
     verificar(c1.area(), 4*pi)
     xc, yc = c1.centroide()

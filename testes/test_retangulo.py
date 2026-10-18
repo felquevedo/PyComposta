@@ -1,6 +1,12 @@
-"""Casos originais de retangulo, migrados de __main__ sem alterar as asserções."""
+"""Testes de retangulo.
+
+Cada teste documenta o objetivo do caso e compara valores numericos
+com resultados de referencia usando a funcao verificar.
+Os cenarios migrados mantem verificacoes acumuladas do codigo original.
+"""
 from geometria.retangulo import *
 def verificar(valor, esperado):
+    """Compara resultado e referencia com tolerancias numericas."""
     assert isclose(
         valor, esperado,
         rel_tol=1e-9,
@@ -8,7 +14,11 @@ def verificar(valor, esperado):
     ), f"Esperado {esperado}, obtido {valor}"
 
 
-def test_original_01():
+def test_area_centroide_e_inercias_basicas():
+    """Verifica area centroide e inercias basicas.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     r1 = Retangulo(b=4, h=2)
     verificar(r1.area(), 8.0)
     xc, yc = r1.centroide()
@@ -24,7 +34,11 @@ def test_original_01():
     verificar(Ixy, 16.0)
 
 
-def test_original_02():
+def test_translacao_e_rotacao_30_graus():
+    """Verifica translacao e rotacao 30 graus.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     r1 = Retangulo(b=4, h=2)
     verificar(r1.area(), 8.0)
     xc, yc = r1.centroide()
@@ -55,7 +69,11 @@ def test_original_02():
     verificar(Ixy, -3.4641016151377544)
 
 
-def test_original_03():
+def test_momentos_principais_do_retangulo_rotacionado():
+    """Verifica momentos principais do retangulo rotacionado.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     r1 = Retangulo(b=4, h=2)
     verificar(r1.area(), 8.0)
     xc, yc = r1.centroide()
@@ -90,7 +108,11 @@ def test_original_03():
     verificar(angulo, -60.0)
 
 
-def test_original_04():
+def test_transformacao_de_inercias_para_outros_eixos():
+    """Verifica transformacao de inercias para outros eixos.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     r1 = Retangulo(b=4, h=2)
     verificar(r1.area(), 8.0)
     xc, yc = r1.centroide()
@@ -137,7 +159,11 @@ def test_original_04():
     verificar(Iuv, 16.0)
 
 
-def test_original_05():
+def test_rejeicao_de_dimensoes_invalidas():
+    """Verifica rejeicao de dimensoes invalidas.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     r1 = Retangulo(b=4, h=2)
     verificar(r1.area(), 8.0)
     xc, yc = r1.centroide()

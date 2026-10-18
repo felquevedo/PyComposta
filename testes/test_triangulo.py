@@ -1,6 +1,12 @@
-"""Casos originais de triangulo, migrados de __main__ sem alterar as asserções."""
+"""Testes de triangulo.
+
+Cada teste documenta o objetivo do caso e compara valores numericos
+com resultados de referencia usando a funcao verificar.
+Os cenarios migrados mantem verificacoes acumuladas do codigo original.
+"""
 from geometria.triangulo import *
 def verificar(valor, esperado):
+    """Compara resultado e referencia com tolerancias numericas."""
     assert isclose(
         valor, esperado,
         rel_tol=1e-9,
@@ -8,7 +14,11 @@ def verificar(valor, esperado):
     ), f"Esperado {esperado}, obtido {valor}"
 
 
-def test_original_01():
+def test_area_centroide_e_produto_de_inercia():
+    """Verifica area centroide e produto de inercia.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     t1 = Triangulo(
         (0, 0), (4, 0), (0, 3)
     )
@@ -22,7 +32,11 @@ def test_original_01():
     verificar(Ixy, -2.0)
 
 
-def test_original_02():
+def test_inercias_em_relacao_a_origem():
+    """Verifica inercias em relacao a origem.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     t1 = Triangulo(
         (0, 0), (4, 0), (0, 3)
     )
@@ -40,7 +54,11 @@ def test_original_02():
     verificar(Ixy, 6.0)
 
 
-def test_original_03():
+def test_invariancia_a_ordem_dos_vertices():
+    """Verifica invariancia a ordem dos vertices.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     t1 = Triangulo(
         (0, 0), (4, 0), (0, 3)
     )
@@ -67,7 +85,11 @@ def test_original_03():
         verificar(a, b)
 
 
-def test_original_04():
+def test_translacao_e_rotacao_90_graus():
+    """Verifica translacao e rotacao 90 graus.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     t1 = Triangulo(
         (0, 0), (4, 0), (0, 3)
     )
@@ -105,7 +127,11 @@ def test_original_04():
     verificar(Ixy, 2.0)
 
 
-def test_original_05():
+def test_momentos_principais_e_eixos_rotacionados():
+    """Verifica momentos principais e eixos rotacionados.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     t1 = Triangulo(
         (0, 0), (4, 0), (0, 3)
     )
@@ -156,7 +182,11 @@ def test_original_05():
     verificar(Iuv, 0.0)
 
 
-def test_original_06():
+def test_vertices_invalidos_e_triangulo_vazado():
+    """Verifica vertices invalidos e triangulo vazado.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     t1 = Triangulo(
         (0, 0), (4, 0), (0, 3)
     )

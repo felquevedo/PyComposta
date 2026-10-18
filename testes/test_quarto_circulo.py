@@ -1,6 +1,12 @@
-"""Casos originais de quarto_circulo, migrados de __main__ sem alterar as asserções."""
+"""Testes de quarto circulo.
+
+Cada teste documenta o objetivo do caso e compara valores numericos
+com resultados de referencia usando a funcao verificar.
+Os cenarios migrados mantem verificacoes acumuladas do codigo original.
+"""
 from geometria.quarto_circulo import *
 def verificar(valor, esperado):
+    """Compara resultado e referencia com tolerancias numericas."""
     assert isclose(
         valor, esperado,
         rel_tol=1e-9,
@@ -8,7 +14,11 @@ def verificar(valor, esperado):
     ), f"Esperado {esperado}, obtido {valor}"
 
 
-def test_original_01():
+def test_area_centroide_e_inercias_basicas():
+    """Verifica area centroide e inercias basicas.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     q1 = QuartoCirculo(r=2)
     verificar(q1.area(), pi)
     xc, yc = q1.centroide()
@@ -20,7 +30,11 @@ def test_original_01():
     verificar(Ixy, 16*(1/8 - 4/(9*pi)))
 
 
-def test_original_02():
+def test_produto_de_inercia_do_quarto_de_circulo():
+    """Verifica produto de inercia do quarto de circulo.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     q1 = QuartoCirculo(r=2)
     verificar(q1.area(), pi)
     xc, yc = q1.centroide()
@@ -36,7 +50,11 @@ def test_original_02():
     verificar(Ixy, 2.0)
 
 
-def test_original_03():
+def test_rotacao_de_90_graus():
+    """Verifica rotacao de 90 graus.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     q1 = QuartoCirculo(r=2)
     verificar(q1.area(), pi)
     xc, yc = q1.centroide()
@@ -67,7 +85,11 @@ def test_original_03():
     verificar(Ixy, -Pcentral)
 
 
-def test_original_04():
+def test_momentos_principais():
+    """Verifica momentos principais.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     q1 = QuartoCirculo(r=2)
     verificar(q1.area(), pi)
     xc, yc = q1.centroide()
@@ -104,7 +126,11 @@ def test_original_04():
     verificar(angulo, -45.0)
 
 
-def test_original_05():
+def test_transformacao_para_eixos_rotacionados():
+    """Verifica transformacao para eixos rotacionados.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     q1 = QuartoCirculo(r=2)
     verificar(q1.area(), pi)
     xc, yc = q1.centroide()
@@ -150,7 +176,11 @@ def test_original_05():
     verificar(Iuv, 0.0)
 
 
-def test_original_06():
+def test_raios_invalidos_e_figura_vazada():
+    """Verifica raios invalidos e figura vazada.
+
+    Este caso preserva as verificacoes acumuladas do teste original.
+    """
     q1 = QuartoCirculo(r=2)
     verificar(q1.area(), pi)
     xc, yc = q1.centroide()

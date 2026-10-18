@@ -12,3 +12,13 @@ python -m pytest -v
 ```
 
 A pasta `geometria/` no ZIP contém a versão dos módulos utilizada para a migração. Se você fez alterações mais recentes nesses módulos, compare-as antes de substituir arquivos.
+
+## Nomes e documentação dos testes
+
+Os 39 testes anteriormente denominados `test_original_01`, etc., foram
+renomeados para identificar as propriedades ou cenários verificados.
+Cada função possui uma docstring em português. Os casos originais acumulam
+verificações de etapas anteriores; a repetição foi preservada nesta revisão
+para não alterar a cobertura e os resultados de referência.
+
+Execute `python -m pytest -v` para visualizar os nomes descritivos.
