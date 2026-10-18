@@ -372,6 +372,10 @@ class InterfacePyComposta(tk.Tk):
         self.mostrar_por_partes = tk.BooleanVar(value=False)
         self.mostrar_eixos_centrais = tk.BooleanVar(value=True)
         self.mostrar_eixos_principais = tk.BooleanVar(value=True)
+        self.mostrar_mohr = tk.BooleanVar(value=False)
+        self.janela_mohr = None
+        self.figura_mohr = None
+        self.canvas_mohr = None
         self.espacamento_x = tk.StringVar(value="20")
         self.espacamento_y = tk.StringVar(value="20")
 
@@ -450,6 +454,7 @@ class InterfacePyComposta(tk.Tk):
                     "eixos_centroidais": self.mostrar_eixos_centrais.get(),
                     "eixos_principais": self.mostrar_eixos_principais.get(),
                     "por_partes": self.mostrar_por_partes.get(),
+                    "circulo_mohr": self.mostrar_mohr.get(),
                     "snap": self.snap_ativo.get(),
                     "poligono_negativo": self.poligono_negativo.get(),
                     "espacamento_x": self.espacamento_x.get(),
@@ -498,6 +503,7 @@ class InterfacePyComposta(tk.Tk):
             "eixos_centroidais": self.mostrar_eixos_centrais,
             "eixos_principais": self.mostrar_eixos_principais,
             "por_partes": self.mostrar_por_partes,
+            "circulo_mohr": self.mostrar_mohr,
             "snap": self.snap_ativo,
             "poligono_negativo": self.poligono_negativo,
             "espacamento_x": self.espacamento_x,
@@ -685,6 +691,7 @@ class InterfacePyComposta(tk.Tk):
             ("Eixos centroidais", self.mostrar_eixos_centrais),
             ("Eixos principais", self.mostrar_eixos_principais),
             ("Por partes", self.mostrar_por_partes),
+            ("Círculo de Mohr", self.mostrar_mohr),
         ]
         for texto, variavel in opcoes:
             ttk.Checkbutton(
@@ -1095,6 +1102,7 @@ class InterfacePyComposta(tk.Tk):
         self._contornos_selecao.clear()
         self.destacar_figura_selecionada()
         self.canvas_mpl.draw_idle()
+        self.atualizar_mohr()
 
     def _conectar_eventos_poligono(self):
         """Registra eventos na Figure atual (trocas invalidam os anteriores)."""
@@ -1287,6 +1295,102 @@ class InterfacePyComposta(tk.Tk):
         self.txt_resultados.insert("1.0", texto)
         self.txt_resultados.configure(state="disabled")
 
+    def _fechar_mohr(self):
+        """Fecha a janela do círculo e desmarca a opção."""
+        self.mostrar_mohr.set(False)
+        if self.figura_mohr is not None:
+            plt.close(self.figura_mohr)
+        self.figura_mohr = None
+        self.canvas_mohr = None
+        if self.janela_mohr is not None:
+            self.janela_mohr.destroy()
+        self.janela_mohr = None
+
+    def atualizar_mohr(self):
+        """Exibe o círculo de Mohr das inércias em janela independente."""
+        if not self.mostrar_mohr.get():
+            if self.janela_mohr is not None:
+                self._fechar_mohr()
+            return
+
+        if self.janela_mohr is None or not self.janela_mohr.winfo_exists():
+            self.janela_mohr = tk.Toplevel(self)
+            self.janela_mohr.title("PyComposta — Círculo de Mohr")
+            self.janela_mohr.geometry("720x610")
+            self.janela_mohr.protocol("WM_DELETE_WINDOW", self._fechar_mohr)
+            self.figura_mohr, ax = plt.subplots(figsize=(7, 5.7))
+            self.canvas_mohr = FigureCanvasTkAgg(self.figura_mohr, master=self.janela_mohr)
+            self.canvas_mohr.get_tk_widget().pack(fill="both", expand=True)
+        else:
+            self.figura_mohr.clear()
+            ax = self.figura_mohr.add_subplot(111)
+
+        if not self.secao.figuras:
+            ax.text(0.5, 0.5, "Adicione figuras para visualizar o círculo de Mohr.",
+                    ha="center", va="center", transform=ax.transAxes)
+            ax.set_axis_off()
+        else:
+            ix, iy, ixy = self.secao.inercias_centrais()
+            iu, iv, angulo = self.secao.inercias_principais()
+            centro = (ix + iy) / 2
+            raio = math.hypot((ix - iy) / 2, ixy)
+            from matplotlib.patches import Circle
+            ax.add_patch(Circle((centro, 0), raio, fill=False,
+                                color="tab:blue", linewidth=2))
+            ax.plot([ix, iy], [ixy, -ixy], "o--", color="tab:orange", lw=1.3)
+            ax.plot([iv, iu], [0, 0], "o", color="tab:green")
+            ax.plot(centro, 0, "x", color="black", markersize=9, zorder=5)
+            # Centro e raio indicados diretamente no diagrama.
+            ax.annotate("C", (centro, 0), xytext=(6, -17),
+                        textcoords="offset points", fontsize=10, fontweight="bold")
+            if raio > 0:
+                from matplotlib.patches import Arc
+                # O raio é traçado até o ponto correspondente ao eixo x.
+                ax.plot([centro, ix], [0, ixy], color="tab:purple",
+                        linewidth=1.8, zorder=3)
+                ax.annotate("R", ((centro + ix) / 2, ixy / 2),
+                            xytext=(7, 6), textcoords="offset points",
+                            color="tab:purple", fontsize=10, fontweight="bold")
+                # Ângulo no plano de Mohr: da direção horizontal positiva
+                # ao raio que passa pelo ponto (Ix, Ixy).
+                phi = math.degrees(math.atan2(ixy, ix - centro))
+                raio_arco = raio * 0.24
+                inicio, fim = (0, phi) if phi >= 0 else (phi, 0)
+                ax.add_patch(Arc((centro, 0), 2 * raio_arco, 2 * raio_arco,
+                                 theta1=inicio, theta2=fim,
+                                 color="tab:red", linewidth=1.7, zorder=4))
+                angulo_meio = math.radians(phi / 2)
+                ax.annotate(f"2θ = {phi:.1f}°",
+                            (centro + raio_arco * 1.5 * math.cos(angulo_meio),
+                             raio_arco * 1.5 * math.sin(angulo_meio)),
+                            color="tab:red", fontsize=9, ha="center", va="center")
+            ax.annotate("(Ix, Ixy)", (ix, ixy), xytext=(7, 8),
+                        textcoords="offset points", fontsize=9)
+            ax.annotate("(Iy, -Ixy)", (iy, -ixy), xytext=(7, -16),
+                        textcoords="offset points", fontsize=9)
+            ax.annotate("Iv", (iv, 0), xytext=(-12, 9),
+                        textcoords="offset points", fontsize=9)
+            ax.annotate("Iu", (iu, 0), xytext=(5, 9),
+                        textcoords="offset points", fontsize=9)
+            ax.axhline(0, color="0.35", linewidth=0.8)
+            ax.axvline(0, color="0.75", linewidth=0.8)
+            folga = max(raio * 0.3, abs(centro) * 0.025, 1.0)
+            ax.set_xlim(centro - raio - folga, centro + raio + folga)
+            ax.set_ylim(-raio - folga, raio + folga)
+            ax.set_aspect("equal", adjustable="box")
+            ax.set_xlabel("Momento de inércia, I")
+            ax.set_ylabel("Produto de inércia, Ixy")
+            ax.set_title("Círculo de Mohr das propriedades geométricas")
+            ax.grid(True, linestyle=":", alpha=0.4)
+            ax.text(0.02, 0.98,
+                    f"C = ({centro:.5g}, 0)    R = {raio:.5g}\n"
+                    f"Iu = {iu:.5g}    Iv = {iv:.5g}\n"
+                    f"θ principal = {angulo:.3f}° (na seção)",
+                    transform=ax.transAxes, va="top", fontsize=9,
+                    bbox=dict(facecolor="white", alpha=0.85, edgecolor="0.8"))
+        self.figura_mohr.tight_layout()
+        self.canvas_mohr.draw_idle()
+
     def fechar_aplicacao(self):
         """Libera o gráfico e encerra a janela principal."""
         if self._resize_job is not None:
@@ -1295,6 +1399,8 @@ class InterfacePyComposta(tk.Tk):
         if self.figura_mpl is not None:
             plt.close(self.figura_mpl)
             self.figura_mpl = None
+        if self.janela_mohr is not None:
+            self._fechar_mohr()
         self.quit()
         self.destroy()
 
